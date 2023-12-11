@@ -1,0 +1,3288 @@
+openapi: 3.0.3
+info:
+  description: Arguflow REST API OpenAPI Documentation
+  license:
+    name: ""
+  title: vault-server
+  version: 1.0.0
+servers:
+- url: /
+tags:
+- description: Authentication endpoint
+  name: auth
+- description: Password reset endpoint
+  name: password
+- description: Topic chat endpoint
+  name: topic
+- description: Message chat endpoint
+  name: message
+- description: Card endpoint
+  name: card
+- description: User endpoint
+  name: user
+- description: Card collection endpoint
+  name: card_collection
+- description: File endpoint
+  name: file
+- description: Notifications endpoint
+  name: notifications
+- description: Health check endpoint
+  name: health
+paths:
+  /api/auth:
+    delete:
+      operationId: logout
+      responses:
+        "204":
+          description: Confirmation that your current auth credentials have been cleared
+      tags:
+      - auth
+      x-openapi-router-controller: openapi_server.controllers.auth_controller
+    get:
+      operationId: get_me
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/SlimUser'
+                type: array
+          description: The user corresponding to your current auth credentials
+        "400":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/DefaultError'
+                type: array
+          description: Error message indicitating you are not currently signed in
+      tags:
+      - auth
+      x-openapi-router-controller: openapi_server.controllers.auth_controller
+    post:
+      operationId: login
+      responses:
+        "200":
+          description: Response that redirects to OAuth provider
+        "400":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/DefaultError'
+                type: array
+          description: OAuth Error
+      tags:
+      - auth
+      x-openapi-router-controller: openapi_server.controllers.auth_controller
+  /api/card:
+    post:
+      operationId: create_card
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateCardData'
+        description: JSON request payload to create a new card (chunk)
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/ReturnCreatedCard'
+                type: array
+          description: JSON response payload containing the created card
+        "400":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/DefaultError'
+                type: array
+          description: "Service error relating to to creating a card, likely due to\
+            \ conflicting tracking_id"
+      tags:
+      - card
+      x-openapi-router-controller: openapi_server.controllers.card_controller
+  /api/card/gen_suggestions:
+    post:
+      operationId: create_suggested_queries_handler
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SuggestedQueriesRequest'
+        description: JSON request payload to get alternative suggested queries
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/SuggestedQueriesResponse'
+                type: array
+          description: A JSON object containing a list of alternative suggested queries
+        "400":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/DefaultError'
+                type: array
+          description: "Service error relating to to updating card, likely due to\
+            \ conflicting tracking_id"
+      tags:
+      - card
+      x-openapi-router-controller: openapi_server.controllers.card_controller
+  /api/card/generate:
+    post:
+      operationId: generate_off_cards
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GenerateCardsRequest'
+        description: JSON request payload to perform RAG on some cards (chunks)
+        required: true
+      responses:
+        "200":
+          description: "This will be a HTTP stream, check the chat or search UI for\
+            \ an example how to process this"
+        "400":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/DefaultError'
+                type: array
+          description: "Service error relating to to updating card, likely due to\
+            \ conflicting tracking_id"
+      tags:
+      - card
+      x-openapi-router-controller: openapi_server.controllers.card_controller
+  /api/card/recommend:
+    post:
+      operationId: get_recommended_cards
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RecommendCardsRequest'
+        description: JSON request payload to get recommendations of cards similar
+          to the cards in the request
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  items:
+                    $ref: '#/components/schemas/CardMetadataWithFileData'
+                  type: array
+                type: array
+          description: JSON response payload containing cards with scores which are
+            similar to those in the request body
+        "400":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/DefaultError'
+                type: array
+          description: Service error relating to to getting similar cards
+      tags:
+      - card
+      x-openapi-router-controller: openapi_server.controllers.card_controller
+  /api/card/search:
+    post:
+      operationId: search_card
+      parameters:
+      - description: Page number of the search results
+        explode: false
+        in: path
+        name: page
+        required: true
+        schema:
+          format: int64
+          minimum: 0
+          nullable: true
+          type: integer
+        style: simple
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SearchCardData'
+        description: JSON request payload to semantically search for cards (chunks)
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/SearchCardQueryResponseBody'
+                type: array
+          description: Cards which are similar to the embedding vector of the search
+            query
+        "400":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/DefaultError'
+                type: array
+          description: Service error relating to searching
+      tags:
+      - card
+      x-openapi-router-controller: openapi_server.controllers.card_controller
+  /api/card/tracking_id/update:
+    put:
+      operationId: update_card_by_tracking_id
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateCardByTrackingIdData'
+        description: JSON request payload to update a card by tracking_id (chunks)
+        required: true
+      responses:
+        "204":
+          description: Confirmation that the card has been updated as per your request
+        "400":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/DefaultError'
+                type: array
+          description: Service error relating to to updating card
+      tags:
+      - card
+      x-openapi-router-controller: openapi_server.controllers.card_controller
+  /api/card/tracking_id/{tracking_id}:
+    delete:
+      operationId: delete_card_by_tracking_id
+      parameters:
+      - description: tracking_id of the card you want to delete
+        explode: false
+        in: path
+        name: tracking_id
+        required: true
+        schema:
+          type: string
+        style: simple
+      responses:
+        "204":
+          description: Confirmation that the card with the tracking_id specified was
+            deleted
+        "400":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/DefaultError'
+                type: array
+          description: Service error relating to finding a card by tracking_id
+      tags:
+      - card
+      x-openapi-router-controller: openapi_server.controllers.card_controller
+    get:
+      operationId: get_card_by_tracking_id
+      parameters:
+      - description: tracking_id of the card you want to fetch
+        explode: false
+        in: path
+        name: tracking_id
+        required: true
+        schema:
+          type: string
+        style: simple
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/CardMetadata'
+                type: array
+          description: Card with the tracking_id that you were searching for
+        "400":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/DefaultError'
+                type: array
+          description: Service error relating to fidning a card by tracking_id
+      tags:
+      - card
+      x-openapi-router-controller: openapi_server.controllers.card_controller
+  /api/card/update:
+    put:
+      operationId: update_card
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateCardData'
+        description: JSON request payload to update a card (chunk)
+        required: true
+      responses:
+        "204":
+          description: No content Ok response indicating the card was updated as requested
+        "400":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/DefaultError'
+                type: array
+          description: "Service error relating to to updating card, likely due to\
+            \ conflicting tracking_id"
+      tags:
+      - card
+      x-openapi-router-controller: openapi_server.controllers.card_controller
+  /api/card/{card_id}}:
+    delete:
+      operationId: delete_card
+      parameters:
+      - description: id of the card you want to delete
+        explode: false
+        in: path
+        name: card_id
+        required: true
+        schema:
+          format: uuid
+          type: string
+        style: simple
+      responses:
+        "204":
+          description: Confirmation that the card with the id specified was deleted
+        "400":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/DefaultError'
+                type: array
+          description: Service error relating to finding a card by tracking_id
+      tags:
+      - card
+      x-openapi-router-controller: openapi_server.controllers.card_controller
+  /api/card_collection:
+    delete:
+      operationId: delete_card_collection
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeleteCollectionData'
+        description: JSON request payload to delete a CardCollection
+        required: true
+      responses:
+        "204":
+          description: Confirmation that the CardCollection was deleted
+        "400":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/DefaultError'
+                type: array
+          description: Service error relating to deleting the CardCollection
+      tags:
+      - card_collection
+      x-openapi-router-controller: openapi_server.controllers.card_collection_controller
+    post:
+      operationId: create_card_collection
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateCardCollectionData'
+        description: JSON request payload to cretea a CardCollection
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/CardCollection'
+                type: array
+          description: Returns the created CardCollection
+        "400":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/DefaultError'
+                type: array
+          description: Service error relating to creating the CardCollection
+      tags:
+      - card_collection
+      x-openapi-router-controller: openapi_server.controllers.card_collection_controller
+    put:
+      operationId: update_card_collection
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateCardCollectionData'
+        description: JSON request payload to update a CardCollection
+        required: true
+      responses:
+        "204":
+          description: Confirmation that the CardCollection was updated
+        "400":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/DefaultError'
+                type: array
+          description: Service error relating to updating the CardCollection
+      tags:
+      - card_collection
+      x-openapi-router-controller: openapi_server.controllers.card_collection_controller
+  /api/card_collection/{collection_id}/{page}:
+    get:
+      operationId: get_all_bookmarks
+      parameters:
+      - description: The id of the collection to get the cards from
+        explode: false
+        in: path
+        name: collection_id
+        required: true
+        schema:
+          format: uuid
+          type: string
+        style: simple
+      - description: The page of cards to get from the collection
+        explode: false
+        in: path
+        name: page
+        required: true
+        schema:
+          format: int64
+          minimum: 0
+          type: integer
+        style: simple
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/BookmarkData'
+                type: array
+          description: Bookmark'ed cards present within the specified collection
+        "400":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/DefaultError'
+                type: array
+          description: Service error relating to getting the collections that the
+            card is in
+      tags:
+      - card_collection
+      x-openapi-router-controller: openapi_server.controllers.card_collection_controller
+  /api/card_collection/{page_or_card_collection_id}:
+    delete:
+      operationId: delete_bookmark
+      parameters:
+      - description: The id of the collection to remove the bookmark'ed card from
+        explode: false
+        in: path
+        name: page_or_card_collection_id
+        required: true
+        schema:
+          format: uuid
+          type: string
+        style: simple
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RemoveBookmarkData'
+        description: JSON request payload to remove a card to a collection (un-bookmark
+          it)
+        required: true
+      responses:
+        "204":
+          description: Confirmation that the card was removed to the collection
+        "400":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/DefaultError'
+                type: array
+          description: Service error relating to removing the card from the collection
+      tags:
+      - card_collection
+      x-openapi-router-controller: openapi_server.controllers.card_collection_controller
+    get:
+      operationId: get_logged_in_user_card_collections
+      parameters:
+      - description: The page of collections to fetch
+        explode: false
+        in: path
+        name: page_or_card_collection_id
+        required: true
+        schema:
+          format: int64
+          minimum: 0
+          type: integer
+        style: simple
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/CollectionData'
+                type: array
+          description: The page of collections for the auth'ed user
+        "400":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/DefaultError'
+                type: array
+          description: Service error relating to getting the collections for the auth'ed
+            user
+      tags:
+      - card_collection
+      x-openapi-router-controller: openapi_server.controllers.card_collection_controller
+    post:
+      operationId: add_bookmark
+      parameters:
+      - description: The id of the collection to add the card to
+        explode: false
+        in: path
+        name: page_or_card_collection_id
+        required: true
+        schema:
+          format: uuid
+          type: string
+        style: simple
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddCardToCollectionData'
+        description: JSON request payload to add a card to a collection (bookmark
+          it)
+        required: true
+      responses:
+        "204":
+          description: Confirmation that the card was added to the collection
+        "400":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/DefaultError'
+                type: array
+          description: Service error relating to getting the collections that the
+            card is in
+      tags:
+      - card_collection
+      x-openapi-router-controller: openapi_server.controllers.card_collection_controller
+  /api/file:
+    post:
+      operationId: upload_file_handler
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UploadFileData'
+        description: JSON request payload to upload a file
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/UploadFileResult'
+                type: array
+          description: Confirmation that the file is uploading
+        "400":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/DefaultError'
+                type: array
+          description: Service error relating to uploading the file
+      tags:
+      - file
+      x-openapi-router-controller: openapi_server.controllers.file_controller
+    put:
+      operationId: update_file_handler
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateFileData'
+        description: JSON request payload to update a file
+        required: true
+      responses:
+        "204":
+          description: Confirmation that the file is updated
+        "400":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/DefaultError'
+                type: array
+          description: Service error relating to initially processing the file
+      tags:
+      - file
+      x-openapi-router-controller: openapi_server.controllers.file_controller
+  /api/file/{file_id}:
+    delete:
+      operationId: delete_file_handler
+      parameters:
+      - description: The id of the file to delete
+        explode: false
+        in: path
+        name: file_id
+        required: true
+        schema:
+          format: uuid
+          type: string
+        style: simple
+      responses:
+        "204":
+          description: Confirmation that the file has been deleted
+        "400":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/DefaultError'
+                type: array
+          description: Service error relating to finding or deleting the file
+      tags:
+      - file
+      x-openapi-router-controller: openapi_server.controllers.file_controller
+    get:
+      operationId: get_file_handler
+      parameters:
+      - description: The id of the file to fetch
+        explode: false
+        in: path
+        name: file_id
+        required: true
+        schema:
+          format: uuid
+          type: string
+        style: simple
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/FileDTO'
+                type: array
+          description: The file corresponding to the file_id requested
+        "400":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/DefaultError'
+                type: array
+          description: Service error relating to finding the file
+      tags:
+      - file
+      x-openapi-router-controller: openapi_server.controllers.file_controller
+  /api/health:
+    get:
+      operationId: health_check
+      responses:
+        "200":
+          description: Confirmation that the service is healthy and can make embedding
+            vectors
+        "400":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/DefaultError'
+                type: array
+          description: Service error relating to making an embedding or overall service
+            health
+      tags:
+      - health
+      x-openapi-router-controller: openapi_server.controllers.health_controller
+  /api/image/{file_name}:
+    get:
+      operationId: get_image_file
+      parameters:
+      - description: The name of the image file to return
+        explode: false
+        in: path
+        name: file_name
+        required: true
+        schema:
+          type: string
+        style: simple
+      responses:
+        "200":
+          description: The raw image file corresponding to the file_name requested
+            such that it can be a src for an img tag
+        "400":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/DefaultError'
+                type: array
+          description: Service error relating to finding the file
+      tags:
+      - file
+      x-openapi-router-controller: openapi_server.controllers.file_controller
+  /api/message:
+    delete:
+      operationId: regenerate_message_handler
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegenerateMessageData'
+        description: JSON request payload to delete an agent message then regenerate
+          it in a strem
+        required: true
+      responses:
+        "200":
+          description: "This will be a HTTP stream, check the chat or search UI for\
+            \ an example how to process this"
+        "400":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/DefaultError'
+                type: array
+          description: Service error relating to getting a chat completion
+      tags:
+      - message
+      x-openapi-router-controller: openapi_server.controllers.message_controller
+    post:
+      operationId: create_message_completion_handler
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateMessageData'
+        description: JSON request payload to create a message completion
+        required: true
+      responses:
+        "200":
+          description: "This will be a HTTP stream, check the chat or search UI for\
+            \ an example how to process this"
+        "400":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/DefaultError'
+                type: array
+          description: Service error relating to getting a chat completion
+      tags:
+      - message
+      x-openapi-router-controller: openapi_server.controllers.message_controller
+    put:
+      operationId: edit_message_handler
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EditMessageData'
+        description: JSON request payload to edit a message and get a new stream
+        required: true
+      responses:
+        "200":
+          description: "This will be a HTTP stream, check the chat or search UI for\
+            \ an example how to process this"
+        "400":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/DefaultError'
+                type: array
+          description: Service error relating to getting a chat completion
+      tags:
+      - message
+      x-openapi-router-controller: openapi_server.controllers.message_controller
+  /api/messages/{messages_topic_id}:
+    get:
+      operationId: get_all_topic_messages
+      parameters:
+      - description: The ID of the topic to get messages for
+        explode: false
+        in: path
+        name: messages_topic_id
+        required: true
+        schema:
+          format: uuid
+          type: string
+        style: simple
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  items:
+                    $ref: '#/components/schemas/Message'
+                  type: array
+                type: array
+          description: All messages relating to the topic with the given ID
+        "400":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/DefaultError'
+                type: array
+          description: Service error relating to getting the messages
+      tags:
+      - message
+      x-openapi-router-controller: openapi_server.controllers.message_controller
+  /api/notifications:
+    put:
+      operationId: mark_notification_as_read
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NotificationId'
+        description: JSON request payload with id of notification to mark read
+        required: true
+      responses:
+        "204":
+          description: Confirmation that the notification is marked read
+        "400":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/DefaultError'
+                type: array
+          description: Service error relating to finding the notification and marking
+            it read
+      tags:
+      - notifications
+      x-openapi-router-controller: openapi_server.controllers.notifications_controller
+  /api/notifications/{page}:
+    get:
+      operationId: get_notifications
+      parameters:
+      - description: Page number of notifications to get
+        explode: false
+        in: path
+        name: page
+        required: true
+        schema:
+          format: int64
+          type: integer
+        style: simple
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/NotificationReturn'
+                type: array
+          description: Notifications for the user
+        "400":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/DefaultError'
+                type: array
+          description: Service error relating to getting notifications for the user
+      tags:
+      - notifications
+      x-openapi-router-controller: openapi_server.controllers.notifications_controller
+  /api/notifications_readall:
+    put:
+      operationId: mark_all_notifications_as_read
+      responses:
+        "204":
+          description: Confirmation that the all notification were marked read for
+            the auth'ed user
+        "400":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/DefaultError'
+                type: array
+          description: Service error relating to finding the notifications for the
+            auth'ed user and marking them read
+      tags:
+      - notifications
+      x-openapi-router-controller: openapi_server.controllers.notifications_controller
+  /api/organization:
+    post:
+      operationId: create_organization
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateOrganizationData'
+        description: The organization data that you want to create
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/Organization'
+                type: array
+          description: Created organization object
+        "400":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/DefaultError'
+                type: array
+          description: Service error relating to creating the organization
+      tags:
+      - organization
+      x-openapi-router-controller: openapi_server.controllers.organization_controller
+    put:
+      operationId: update_organization
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateOrganizationData'
+        description: The organization data that you want to update
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/Organization'
+                type: array
+          description: Updated organization object
+        "400":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/DefaultError'
+                type: array
+          description: Service error relating to updating the organization
+      tags:
+      - organization
+      x-openapi-router-controller: openapi_server.controllers.organization_controller
+  /api/organization/{organization_id}:
+    delete:
+      operationId: delete_organization_by_id
+      parameters:
+      - description: id of the organization you want to delete
+        explode: false
+        in: path
+        name: organization_id
+        required: true
+        schema:
+          format: uuid
+          type: string
+        style: simple
+      responses:
+        "204":
+          description: Confirmation that the organization with the requested id was
+            deleted
+        "400":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/DefaultError'
+                type: array
+          description: Service error relating to deleting the organization by id
+      tags:
+      - organization
+      x-openapi-router-controller: openapi_server.controllers.organization_controller
+    get:
+      operationId: get_organization_by_id
+      parameters:
+      - description: id of the organization you want to fetch
+        explode: false
+        in: path
+        name: organization_id
+        required: true
+        schema:
+          format: uuid
+          type: string
+        style: simple
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/Organization'
+                type: array
+          description: Organization with the id that was requested
+        "400":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/DefaultError'
+                type: array
+          description: Service error relating to finding the organization by id
+      tags:
+      - organization
+      x-openapi-router-controller: openapi_server.controllers.organization_controller
+  /api/topic:
+    delete:
+      operationId: delete_topic
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeleteTopicData'
+        description: JSON request payload to delete a chat topic
+        required: true
+      responses:
+        "204":
+          description: Confirmation that the topic was deleted
+        "400":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/DefaultError'
+                type: array
+          description: Service error relating to topic deletion
+      tags:
+      - topic
+      x-openapi-router-controller: openapi_server.controllers.topic_controller
+    get:
+      operationId: get_all_topics
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  items:
+                    $ref: '#/components/schemas/Topic'
+                  type: array
+                type: array
+          description: All topics belonging to a given user
+        "400":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/DefaultError'
+                type: array
+          description: Service error relating to topic get
+      tags:
+      - topic
+      x-openapi-router-controller: openapi_server.controllers.topic_controller
+    post:
+      operationId: create_topic
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateTopicData'
+        description: JSON request payload to create chat topic
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/Topic'
+                type: array
+          description: The JSON response payload containing the created topic
+        "400":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/DefaultError'
+                type: array
+          description: Topic resolution empty or a service error
+      tags:
+      - topic
+      x-openapi-router-controller: openapi_server.controllers.topic_controller
+    put:
+      operationId: update_topic
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateTopicData'
+        description: JSON request payload to update a chat topic
+        required: true
+      responses:
+        "204":
+          description: Confirmation that the topic was updated
+        "400":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/DefaultError'
+                type: array
+          description: Service error relating to topic update
+      tags:
+      - topic
+      x-openapi-router-controller: openapi_server.controllers.topic_controller
+  /api/user:
+    put:
+      operationId: update_user
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateUserData'
+        description: JSON request payload to update user information for the auth'ed
+          user
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/SlimUser'
+                type: array
+          description: JSON body representing the updated user information
+        "400":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/DefaultError'
+                type: array
+          description: Service error relating to updating the user
+      tags:
+      - user
+      x-openapi-router-controller: openapi_server.controllers.user_controller
+  /api/user/collections/{user_id}/{page}:
+    get:
+      operationId: get_specific_user_card_collections
+      parameters:
+      - description: The id of the user to fetch collections for
+        explode: false
+        in: path
+        name: user_id
+        required: true
+        schema:
+          format: uuid
+          type: string
+        style: simple
+      - description: The page of collections to fetch
+        explode: false
+        in: path
+        name: page
+        required: true
+        schema:
+          format: int64
+          type: integer
+        style: simple
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/CollectionData'
+                type: array
+          description: JSON body representing the collections created by the given
+            user
+        "400":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/DefaultError'
+                type: array
+          description: Service error relating to getting the collections created by
+            the given user
+      tags:
+      - user
+      x-openapi-router-controller: openapi_server.controllers.user_controller
+  /api/user/files/{user_id}:
+    get:
+      operationId: get_user_files_handler
+      parameters:
+      - description: The id of the user to fetch files for
+        explode: false
+        in: path
+        name: user_id
+        required: true
+        schema:
+          format: uuid
+          type: string
+        style: simple
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  items:
+                    $ref: '#/components/schemas/File'
+                  type: array
+                type: array
+          description: JSON body representing the files uploaded by the given user
+        "400":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/DefaultError'
+                type: array
+          description: Service error relating to getting the files uploaded by the
+            given user
+      tags:
+      - user
+      x-openapi-router-controller: openapi_server.controllers.user_controller
+  /api/user/set_api_key:
+    get:
+      operationId: set_user_api_key
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/SetUserApiKeyResponse'
+                type: array
+          description: JSON body representing the api_key for the user
+        "400":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/DefaultError'
+                type: array
+          description: Service error relating to creating api_key for the user
+      tags:
+      - user
+      x-openapi-router-controller: openapi_server.controllers.user_controller
+  /api/user/{user_id}/{page}:
+    get:
+      operationId: get_user_with_cards_by_id
+      parameters:
+      - description: The id of the user to fetch
+        explode: false
+        in: path
+        name: user_id
+        required: true
+        schema:
+          format: uuid
+          type: string
+        style: simple
+      - description: The page of cards to fetch
+        explode: false
+        in: path
+        name: page
+        required: true
+        schema:
+          format: int64
+          type: integer
+        style: simple
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/UserDTOWithCards'
+                type: array
+          description: JSON body representing the cards made by a given user with
+            their cards
+        "400":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/DefaultError'
+                type: array
+          description: Service error relating to getting the cards for the given user
+      tags:
+      - user
+      x-openapi-router-controller: openapi_server.controllers.user_controller
+components:
+  schemas:
+    AddCardToCollectionData:
+      example:
+        card_metadata_id: 046b6c7f-0b8a-43b9-b35d-6489e6daee91
+      properties:
+        card_metadata_id:
+          format: uuid
+          title: card_metadata_id
+          type: string
+      required:
+      - card_metadata_id
+      title: AddCardToCollectionData
+      type: object
+    AuthData:
+      properties:
+        email:
+          type: string
+        password:
+          type: string
+      required:
+      - email
+      - password
+      type: object
+    BookmarkCards:
+      example:
+        metadata:
+        - metadata: ""
+          private: true
+          time_stamp: 2000-01-23T04:56:07.000+00:00
+          card_html: card_html
+          author: ""
+          file_name: file_name
+          link: link
+          created_at: 2000-01-23T04:56:07.000+00:00
+          tag_set: tag_set
+          content: content
+          updated_at: 2000-01-23T04:56:07.000+00:00
+          file_id: 046b6c7f-0b8a-43b9-b35d-6489e6daee91
+          id: 046b6c7f-0b8a-43b9-b35d-6489e6daee91
+          tracking_id: tracking_id
+          qdrant_point_id: 046b6c7f-0b8a-43b9-b35d-6489e6daee91
+        - metadata: ""
+          private: true
+          time_stamp: 2000-01-23T04:56:07.000+00:00
+          card_html: card_html
+          author: ""
+          file_name: file_name
+          link: link
+          created_at: 2000-01-23T04:56:07.000+00:00
+          tag_set: tag_set
+          content: content
+          updated_at: 2000-01-23T04:56:07.000+00:00
+          file_id: 046b6c7f-0b8a-43b9-b35d-6489e6daee91
+          id: 046b6c7f-0b8a-43b9-b35d-6489e6daee91
+          tracking_id: tracking_id
+          qdrant_point_id: 046b6c7f-0b8a-43b9-b35d-6489e6daee91
+      properties:
+        metadata:
+          items:
+            $ref: '#/components/schemas/CardMetadataWithFileData'
+          title: metadata
+          type: array
+      required:
+      - metadata
+      title: BookmarkCards
+      type: object
+    BookmarkCollectionResult:
+      properties:
+        card_uuid:
+          format: uuid
+          type: string
+        slim_collections:
+          items:
+            $ref: '#/components/schemas/SlimCollection'
+          type: array
+      required:
+      - card_uuid
+      - slim_collections
+      type: object
+    BookmarkData:
+      example:
+        bookmarks:
+        - metadata:
+          - metadata: ""
+            private: true
+            time_stamp: 2000-01-23T04:56:07.000+00:00
+            card_html: card_html
+            author: ""
+            file_name: file_name
+            link: link
+            created_at: 2000-01-23T04:56:07.000+00:00
+            tag_set: tag_set
+            content: content
+            updated_at: 2000-01-23T04:56:07.000+00:00
+            file_id: 046b6c7f-0b8a-43b9-b35d-6489e6daee91
+            id: 046b6c7f-0b8a-43b9-b35d-6489e6daee91
+            tracking_id: tracking_id
+            qdrant_point_id: 046b6c7f-0b8a-43b9-b35d-6489e6daee91
+          - metadata: ""
+            private: true
+            time_stamp: 2000-01-23T04:56:07.000+00:00
+            card_html: card_html
+            author: ""
+            file_name: file_name
+            link: link
+            created_at: 2000-01-23T04:56:07.000+00:00
+            tag_set: tag_set
+            content: content
+            updated_at: 2000-01-23T04:56:07.000+00:00
+            file_id: 046b6c7f-0b8a-43b9-b35d-6489e6daee91
+            id: 046b6c7f-0b8a-43b9-b35d-6489e6daee91
+            tracking_id: tracking_id
+            qdrant_point_id: 046b6c7f-0b8a-43b9-b35d-6489e6daee91
+        - metadata:
+          - metadata: ""
+            private: true
+            time_stamp: 2000-01-23T04:56:07.000+00:00
+            card_html: card_html
+            author: ""
+            file_name: file_name
+            link: link
+            created_at: 2000-01-23T04:56:07.000+00:00
+            tag_set: tag_set
+            content: content
+            updated_at: 2000-01-23T04:56:07.000+00:00
+            file_id: 046b6c7f-0b8a-43b9-b35d-6489e6daee91
+            id: 046b6c7f-0b8a-43b9-b35d-6489e6daee91
+            tracking_id: tracking_id
+            qdrant_point_id: 046b6c7f-0b8a-43b9-b35d-6489e6daee91
+          - metadata: ""
+            private: true
+            time_stamp: 2000-01-23T04:56:07.000+00:00
+            card_html: card_html
+            author: ""
+            file_name: file_name
+            link: link
+            created_at: 2000-01-23T04:56:07.000+00:00
+            tag_set: tag_set
+            content: content
+            updated_at: 2000-01-23T04:56:07.000+00:00
+            file_id: 046b6c7f-0b8a-43b9-b35d-6489e6daee91
+            id: 046b6c7f-0b8a-43b9-b35d-6489e6daee91
+            tracking_id: tracking_id
+            qdrant_point_id: 046b6c7f-0b8a-43b9-b35d-6489e6daee91
+        collection:
+          updated_at: 2000-01-23T04:56:07.000+00:00
+          dataset_id: 046b6c7f-0b8a-43b9-b35d-6489e6daee91
+          is_public: true
+          name: name
+          created_at: 2000-01-23T04:56:07.000+00:00
+          description: description
+          id: 046b6c7f-0b8a-43b9-b35d-6489e6daee91
+          author_id: 046b6c7f-0b8a-43b9-b35d-6489e6daee91
+        total_pages: 0
+      properties:
+        bookmarks:
+          items:
+            $ref: '#/components/schemas/BookmarkCards'
+          title: bookmarks
+          type: array
+        collection:
+          $ref: '#/components/schemas/CardCollection'
+        total_pages:
+          format: int64
+          title: total_pages
+          type: integer
+      required:
+      - bookmarks
+      - collection
+      - total_pages
+      title: BookmarkData
+      type: object
+    CardCollection:
+      example:
+        updated_at: 2000-01-23T04:56:07.000+00:00
+        dataset_id: 046b6c7f-0b8a-43b9-b35d-6489e6daee91
+        is_public: true
+        name: name
+        created_at: 2000-01-23T04:56:07.000+00:00
+        description: description
+        id: 046b6c7f-0b8a-43b9-b35d-6489e6daee91
+        author_id: 046b6c7f-0b8a-43b9-b35d-6489e6daee91
+      properties:
+        author_id:
+          format: uuid
+          title: author_id
+          type: string
+        created_at:
+          format: date-time
+          title: created_at
+          type: string
+        dataset_id:
+          format: uuid
+          title: dataset_id
+          type: string
+        description:
+          title: description
+          type: string
+        id:
+          format: uuid
+          title: id
+          type: string
+        is_public:
+          title: is_public
+          type: boolean
+        name:
+          title: name
+          type: string
+        updated_at:
+          format: date-time
+          title: updated_at
+          type: string
+      required:
+      - author_id
+      - created_at
+      - dataset_id
+      - description
+      - id
+      - is_public
+      - name
+      - updated_at
+      title: CardCollection
+      type: object
+    CardCollectionAndFile:
+      example:
+        updated_at: 2000-01-23T04:56:07.000+00:00
+        file_id: 046b6c7f-0b8a-43b9-b35d-6489e6daee91
+        is_public: true
+        name: name
+        created_at: 2000-01-23T04:56:07.000+00:00
+        description: description
+        id: 046b6c7f-0b8a-43b9-b35d-6489e6daee91
+        author_id: 046b6c7f-0b8a-43b9-b35d-6489e6daee91
+      properties:
+        author_id:
+          format: uuid
+          title: author_id
+          type: string
+        created_at:
+          format: date-time
+          title: created_at
+          type: string
+        description:
+          title: description
+          type: string
+        file_id:
+          format: uuid
+          nullable: true
+          title: file_id
+          type: string
+        id:
+          format: uuid
+          title: id
+          type: string
+        is_public:
+          title: is_public
+          type: boolean
+        name:
+          title: name
+          type: string
+        updated_at:
+          format: date-time
+          title: updated_at
+          type: string
+      required:
+      - author_id
+      - created_at
+      - description
+      - id
+      - is_public
+      - name
+      - updated_at
+      title: CardCollectionAndFile
+      type: object
+    CardMetadata:
+      example:
+        metadata: ""
+        private: true
+        time_stamp: 2000-01-23T04:56:07.000+00:00
+        card_html: card_html
+        dataset_id: 046b6c7f-0b8a-43b9-b35d-6489e6daee91
+        link: link
+        created_at: 2000-01-23T04:56:07.000+00:00
+        tag_set: tag_set
+        content: content
+        updated_at: 2000-01-23T04:56:07.000+00:00
+        id: 046b6c7f-0b8a-43b9-b35d-6489e6daee91
+        author_id: 046b6c7f-0b8a-43b9-b35d-6489e6daee91
+        tracking_id: tracking_id
+        qdrant_point_id: 046b6c7f-0b8a-43b9-b35d-6489e6daee91
+      properties:
+        author_id:
+          format: uuid
+          title: author_id
+          type: string
+        card_html:
+          nullable: true
+          title: card_html
+          type: string
+        content:
+          title: content
+          type: string
+        created_at:
+          format: date-time
+          title: created_at
+          type: string
+        dataset_id:
+          format: uuid
+          title: dataset_id
+          type: string
+        id:
+          format: uuid
+          title: id
+          type: string
+        link:
+          nullable: true
+          title: link
+          type: string
+        metadata:
+          nullable: true
+          title: metadata
+        private:
+          title: private
+          type: boolean
+        qdrant_point_id:
+          format: uuid
+          nullable: true
+          title: qdrant_point_id
+          type: string
+        tag_set:
+          nullable: true
+          title: tag_set
+          type: string
+        time_stamp:
+          format: date-time
+          nullable: true
+          title: time_stamp
+          type: string
+        tracking_id:
+          nullable: true
+          title: tracking_id
+          type: string
+        updated_at:
+          format: date-time
+          title: updated_at
+          type: string
+      required:
+      - author_id
+      - content
+      - created_at
+      - dataset_id
+      - id
+      - private
+      - updated_at
+      title: CardMetadata
+      type: object
+    CardMetadataWithFileData:
+      example:
+        metadata: ""
+        private: true
+        time_stamp: 2000-01-23T04:56:07.000+00:00
+        card_html: card_html
+        author: ""
+        file_name: file_name
+        link: link
+        created_at: 2000-01-23T04:56:07.000+00:00
+        tag_set: tag_set
+        content: content
+        updated_at: 2000-01-23T04:56:07.000+00:00
+        file_id: 046b6c7f-0b8a-43b9-b35d-6489e6daee91
+        id: 046b6c7f-0b8a-43b9-b35d-6489e6daee91
+        tracking_id: tracking_id
+        qdrant_point_id: 046b6c7f-0b8a-43b9-b35d-6489e6daee91
+      properties:
+        author:
+          allOf:
+          - $ref: '#/components/schemas/UserDTO'
+          nullable: true
+          title: author
+        card_html:
+          nullable: true
+          title: card_html
+          type: string
+        content:
+          title: content
+          type: string
+        created_at:
+          format: date-time
+          title: created_at
+          type: string
+        file_id:
+          format: uuid
+          nullable: true
+          title: file_id
+          type: string
+        file_name:
+          nullable: true
+          title: file_name
+          type: string
+        id:
+          format: uuid
+          title: id
+          type: string
+        link:
+          nullable: true
+          title: link
+          type: string
+        metadata:
+          nullable: true
+          title: metadata
+        private:
+          title: private
+          type: boolean
+        qdrant_point_id:
+          format: uuid
+          title: qdrant_point_id
+          type: string
+        tag_set:
+          nullable: true
+          title: tag_set
+          type: string
+        time_stamp:
+          format: date-time
+          nullable: true
+          title: time_stamp
+          type: string
+        tracking_id:
+          nullable: true
+          title: tracking_id
+          type: string
+        updated_at:
+          format: date-time
+          title: updated_at
+          type: string
+      required:
+      - content
+      - created_at
+      - id
+      - private
+      - qdrant_point_id
+      - updated_at
+      title: CardMetadataWithFileData
+      type: object
+    ChatMessageProxy:
+      example:
+        role: role
+        name: name
+        content: content
+      properties:
+        content:
+          title: content
+          type: string
+        name:
+          nullable: true
+          title: name
+          type: string
+        role:
+          title: role
+          type: string
+      required:
+      - content
+      - role
+      title: ChatMessageProxy
+      type: object
+    CollectionData:
+      example:
+        collections:
+        - updated_at: 2000-01-23T04:56:07.000+00:00
+          file_id: 046b6c7f-0b8a-43b9-b35d-6489e6daee91
+          is_public: true
+          name: name
+          created_at: 2000-01-23T04:56:07.000+00:00
+          description: description
+          id: 046b6c7f-0b8a-43b9-b35d-6489e6daee91
+          author_id: 046b6c7f-0b8a-43b9-b35d-6489e6daee91
+        - updated_at: 2000-01-23T04:56:07.000+00:00
+          file_id: 046b6c7f-0b8a-43b9-b35d-6489e6daee91
+          is_public: true
+          name: name
+          created_at: 2000-01-23T04:56:07.000+00:00
+          description: description
+          id: 046b6c7f-0b8a-43b9-b35d-6489e6daee91
+          author_id: 046b6c7f-0b8a-43b9-b35d-6489e6daee91
+        total_pages: 0
+      properties:
+        collections:
+          items:
+            $ref: '#/components/schemas/CardCollectionAndFile'
+          title: collections
+          type: array
+        total_pages:
+          format: int64
+          title: total_pages
+          type: integer
+      required:
+      - collections
+      - total_pages
+      title: CollectionData
+      type: object
+    CreateCardCollectionData:
+      example:
+        is_public: true
+        name: name
+        description: description
+      properties:
+        description:
+          title: description
+          type: string
+        is_public:
+          title: is_public
+          type: boolean
+        name:
+          title: name
+          type: string
+      required:
+      - description
+      - is_public
+      - name
+      title: CreateCardCollectionData
+      type: object
+    CreateCardData:
+      example:
+        collection_id: 046b6c7f-0b8a-43b9-b35d-6489e6daee91
+        metadata: ""
+        private: true
+        time_stamp: time_stamp
+        card_html: card_html
+        file_uuid: 046b6c7f-0b8a-43b9-b35d-6489e6daee91
+        link: link
+        tag_set: tag_set
+        tracking_id: tracking_id
+        card_vector:
+        - 0.8008282
+        - 0.8008282
+      properties:
+        card_html:
+          nullable: true
+          title: card_html
+          type: string
+        card_vector:
+          items:
+            format: float
+            type: number
+          nullable: true
+          title: card_vector
+          type: array
+        collection_id:
+          format: uuid
+          nullable: true
+          title: collection_id
+          type: string
+        file_uuid:
+          format: uuid
+          nullable: true
+          title: file_uuid
+          type: string
+        link:
+          nullable: true
+          title: link
+          type: string
+        metadata:
+          nullable: true
+          title: metadata
+        private:
+          nullable: true
+          title: private
+          type: boolean
+        tag_set:
+          nullable: true
+          title: tag_set
+          type: string
+        time_stamp:
+          nullable: true
+          title: time_stamp
+          type: string
+        tracking_id:
+          nullable: true
+          title: tracking_id
+          type: string
+      title: CreateCardData
+      type: object
+    CreateMessageData:
+      example:
+        topic_id: 046b6c7f-0b8a-43b9-b35d-6489e6daee91
+        new_message_content: new_message_content
+      properties:
+        new_message_content:
+          title: new_message_content
+          type: string
+        topic_id:
+          format: uuid
+          title: topic_id
+          type: string
+      required:
+      - new_message_content
+      - topic_id
+      title: CreateMessageData
+      type: object
+    CreateOrganizationData:
+      example:
+        configuration: ""
+        name: name
+      properties:
+        configuration:
+          title: configuration
+        name:
+          title: name
+          type: string
+      required:
+      - configuration
+      - name
+      title: CreateOrganizationData
+      type: object
+    CreateTopicData:
+      example:
+        normal_chat: true
+        resolution: resolution
+      properties:
+        normal_chat:
+          nullable: true
+          title: normal_chat
+          type: boolean
+        resolution:
+          title: resolution
+          type: string
+      required:
+      - resolution
+      title: CreateTopicData
+      type: object
+    DefaultError:
+      properties:
+        message:
+          title: message
+          type: string
+      required:
+      - message
+      title: DefaultError
+      type: object
+    DeleteCollectionData:
+      example:
+        collection_id: 046b6c7f-0b8a-43b9-b35d-6489e6daee91
+      properties:
+        collection_id:
+          format: uuid
+          title: collection_id
+          type: string
+      required:
+      - collection_id
+      title: DeleteCollectionData
+      type: object
+    DeleteTopicData:
+      example:
+        topic_id: 046b6c7f-0b8a-43b9-b35d-6489e6daee91
+      properties:
+        topic_id:
+          format: uuid
+          title: topic_id
+          type: string
+      required:
+      - topic_id
+      title: DeleteTopicData
+      type: object
+    EditMessageData:
+      example:
+        message_sort_order: 0
+        topic_id: 046b6c7f-0b8a-43b9-b35d-6489e6daee91
+        new_message_content: new_message_content
+      properties:
+        message_sort_order:
+          format: int32
+          title: message_sort_order
+          type: integer
+        new_message_content:
+          title: new_message_content
+          type: string
+        topic_id:
+          format: uuid
+          title: topic_id
+          type: string
+      required:
+      - message_sort_order
+      - new_message_content
+      - topic_id
+      title: EditMessageData
+      type: object
+    File:
+      example:
+        metadata: ""
+        private: true
+        size: 0
+        time_stamp: 2000-01-23T04:56:07.000+00:00
+        updated_at: 2000-01-23T04:56:07.000+00:00
+        user_id: 046b6c7f-0b8a-43b9-b35d-6489e6daee91
+        file_name: file_name
+        dataset_id: 046b6c7f-0b8a-43b9-b35d-6489e6daee91
+        link: link
+        created_at: 2000-01-23T04:56:07.000+00:00
+        id: 046b6c7f-0b8a-43b9-b35d-6489e6daee91
+        tag_set: tag_set
+      properties:
+        created_at:
+          format: date-time
+          title: created_at
+          type: string
+        dataset_id:
+          format: uuid
+          title: dataset_id
+          type: string
+        file_name:
+          title: file_name
+          type: string
+        id:
+          format: uuid
+          title: id
+          type: string
+        link:
+          nullable: true
+          title: link
+          type: string
+        metadata:
+          nullable: true
+          title: metadata
+        private:
+          title: private
+          type: boolean
+        size:
+          format: int64
+          title: size
+          type: integer
+        tag_set:
+          nullable: true
+          title: tag_set
+          type: string
+        time_stamp:
+          format: date-time
+          nullable: true
+          title: time_stamp
+          type: string
+        updated_at:
+          format: date-time
+          title: updated_at
+          type: string
+        user_id:
+          format: uuid
+          title: user_id
+          type: string
+      required:
+      - created_at
+      - dataset_id
+      - file_name
+      - id
+      - private
+      - size
+      - updated_at
+      - user_id
+      title: File
+      type: object
+    FileDTO:
+      example:
+        metadata: ""
+        private: true
+        size: 0
+        updated_at: 2000-01-23T04:56:07.000+00:00
+        user_id: 046b6c7f-0b8a-43b9-b35d-6489e6daee91
+        file_name: file_name
+        link: link
+        created_at: 2000-01-23T04:56:07.000+00:00
+        id: 046b6c7f-0b8a-43b9-b35d-6489e6daee91
+        base64url_content: base64url_content
+      properties:
+        base64url_content:
+          title: base64url_content
+          type: string
+        created_at:
+          format: date-time
+          title: created_at
+          type: string
+        file_name:
+          title: file_name
+          type: string
+        id:
+          format: uuid
+          title: id
+          type: string
+        link:
+          nullable: true
+          title: link
+          type: string
+        metadata:
+          nullable: true
+          title: metadata
+        private:
+          title: private
+          type: boolean
+        size:
+          format: int64
+          title: size
+          type: integer
+        updated_at:
+          format: date-time
+          title: updated_at
+          type: string
+        user_id:
+          format: uuid
+          title: user_id
+          type: string
+      required:
+      - base64url_content
+      - created_at
+      - file_name
+      - id
+      - private
+      - size
+      - updated_at
+      - user_id
+      title: FileDTO
+      type: object
+    FileUploadCompletedNotificationWithName:
+      properties:
+        collection_name:
+          nullable: true
+          title: collection_name
+          type: string
+        collection_uuid:
+          format: uuid
+          title: collection_uuid
+          type: string
+        created_at:
+          format: date-time
+          title: created_at
+          type: string
+        id:
+          format: uuid
+          title: id
+          type: string
+        updated_at:
+          format: date-time
+          title: updated_at
+          type: string
+        user_read:
+          title: user_read
+          type: boolean
+        user_uuid:
+          format: uuid
+          title: user_uuid
+          type: string
+      required:
+      - collection_uuid
+      - created_at
+      - id
+      - updated_at
+      - user_read
+      - user_uuid
+      title: FileUploadCompletedNotificationWithName
+      type: object
+    GenerateCardsRequest:
+      example:
+        prev_messages:
+        - role: role
+          name: name
+          content: content
+        - role: role
+          name: name
+          content: content
+        card_ids:
+        - 046b6c7f-0b8a-43b9-b35d-6489e6daee91
+        - 046b6c7f-0b8a-43b9-b35d-6489e6daee91
+      properties:
+        card_ids:
+          items:
+            format: uuid
+            type: string
+          title: card_ids
+          type: array
+        prev_messages:
+          items:
+            $ref: '#/components/schemas/ChatMessageProxy'
+          title: prev_messages
+          type: array
+      required:
+      - card_ids
+      - prev_messages
+      title: GenerateCardsRequest
+      type: object
+    GenerateOffCollectionData:
+      properties:
+        collection_id:
+          format: uuid
+          type: string
+        page:
+          format: int64
+          minimum: 0
+          nullable: true
+          type: integer
+        query:
+          nullable: true
+          type: string
+      required:
+      - collection_id
+      type: object
+    GetAllBookmarksData:
+      properties:
+        collection_id:
+          format: uuid
+          type: string
+        page:
+          format: int64
+          minimum: 0
+          nullable: true
+          type: integer
+      required:
+      - collection_id
+      type: object
+    GetCollectionsForCardsData:
+      properties:
+        card_ids:
+          items:
+            format: uuid
+            type: string
+          type: array
+      required:
+      - card_ids
+      type: object
+    GetUserWithCardsData:
+      properties:
+        page:
+          format: int64
+          type: integer
+        user_id:
+          format: uuid
+          type: string
+      required:
+      - page
+      - user_id
+      type: object
+    Message:
+      example:
+        completion_tokens: 0
+        deleted: true
+        prompt_tokens: 6
+        role: role
+        updated_at: 2000-01-23T04:56:07.000+00:00
+        created_at: 2000-01-23T04:56:07.000+00:00
+        id: 046b6c7f-0b8a-43b9-b35d-6489e6daee91
+        topic_id: 046b6c7f-0b8a-43b9-b35d-6489e6daee91
+        sort_order: 1
+        content: content
+      properties:
+        completion_tokens:
+          format: int32
+          nullable: true
+          title: completion_tokens
+          type: integer
+        content:
+          title: content
+          type: string
+        created_at:
+          format: date-time
+          title: created_at
+          type: string
+        deleted:
+          title: deleted
+          type: boolean
+        id:
+          format: uuid
+          title: id
+          type: string
+        prompt_tokens:
+          format: int32
+          nullable: true
+          title: prompt_tokens
+          type: integer
+        role:
+          title: role
+          type: string
+        sort_order:
+          format: int32
+          title: sort_order
+          type: integer
+        topic_id:
+          format: uuid
+          title: topic_id
+          type: string
+        updated_at:
+          format: date-time
+          title: updated_at
+          type: string
+      required:
+      - content
+      - created_at
+      - deleted
+      - id
+      - role
+      - sort_order
+      - topic_id
+      - updated_at
+      title: Message
+      type: object
+    Notification:
+      oneOf:
+      - $ref: '#/components/schemas/FileUploadCompletedNotificationWithName'
+      title: Notification
+    NotificationId:
+      example:
+        notification_id: 046b6c7f-0b8a-43b9-b35d-6489e6daee91
+      properties:
+        notification_id:
+          format: uuid
+          title: notification_id
+          type: string
+      required:
+      - notification_id
+      title: NotificationId
+      type: object
+    NotificationReturn:
+      example:
+        full_count: 0
+        total_pages: 6
+        notifications:
+        - null
+        - null
+      properties:
+        full_count:
+          format: int32
+          title: full_count
+          type: integer
+        notifications:
+          items:
+            $ref: '#/components/schemas/Notification'
+          title: notifications
+          type: array
+        total_pages:
+          format: int64
+          title: total_pages
+          type: integer
+      required:
+      - full_count
+      - notifications
+      - total_pages
+      title: NotificationReturn
+      type: object
+    Organization:
+      example:
+        updated_at: 2000-01-23T04:56:07.000+00:00
+        configuration: ""
+        registerable: true
+        name: name
+        created_at: 2000-01-23T04:56:07.000+00:00
+        id: 046b6c7f-0b8a-43b9-b35d-6489e6daee91
+      properties:
+        configuration:
+          title: configuration
+        created_at:
+          format: date-time
+          title: created_at
+          type: string
+        id:
+          format: uuid
+          title: id
+          type: string
+        name:
+          title: name
+          type: string
+        registerable:
+          nullable: true
+          title: registerable
+          type: boolean
+        updated_at:
+          format: date-time
+          title: updated_at
+          type: string
+      required:
+      - configuration
+      - created_at
+      - id
+      - name
+      - updated_at
+      title: Organization
+      type: object
+    RecommendCardsRequest:
+      example:
+        positive_card_ids:
+        - 046b6c7f-0b8a-43b9-b35d-6489e6daee91
+        - 046b6c7f-0b8a-43b9-b35d-6489e6daee91
+      properties:
+        positive_card_ids:
+          items:
+            format: uuid
+            type: string
+          title: positive_card_ids
+          type: array
+      required:
+      - positive_card_ids
+      title: RecommendCardsRequest
+      type: object
+    RegenerateMessageData:
+      example:
+        topic_id: 046b6c7f-0b8a-43b9-b35d-6489e6daee91
+      properties:
+        topic_id:
+          format: uuid
+          title: topic_id
+          type: string
+      required:
+      - topic_id
+      title: RegenerateMessageData
+      type: object
+    RemoveBookmarkData:
+      example:
+        card_metadata_id: 046b6c7f-0b8a-43b9-b35d-6489e6daee91
+      properties:
+        card_metadata_id:
+          format: uuid
+          title: card_metadata_id
+          type: string
+      required:
+      - card_metadata_id
+      title: RemoveBookmarkData
+      type: object
+    ReturnCreatedCard:
+      example:
+        card_metadata:
+          metadata: ""
+          private: true
+          time_stamp: 2000-01-23T04:56:07.000+00:00
+          card_html: card_html
+          dataset_id: 046b6c7f-0b8a-43b9-b35d-6489e6daee91
+          link: link
+          created_at: 2000-01-23T04:56:07.000+00:00
+          tag_set: tag_set
+          content: content
+          updated_at: 2000-01-23T04:56:07.000+00:00
+          id: 046b6c7f-0b8a-43b9-b35d-6489e6daee91
+          author_id: 046b6c7f-0b8a-43b9-b35d-6489e6daee91
+          tracking_id: tracking_id
+          qdrant_point_id: 046b6c7f-0b8a-43b9-b35d-6489e6daee91
+        duplicate: true
+      properties:
+        card_metadata:
+          $ref: '#/components/schemas/CardMetadata'
+        duplicate:
+          title: duplicate
+          type: boolean
+      required:
+      - card_metadata
+      - duplicate
+      title: ReturnCreatedCard
+      type: object
+    ScoreCardDTO:
+      example:
+        score: 0.8008281904610115
+        metadata:
+        - metadata: ""
+          private: true
+          time_stamp: 2000-01-23T04:56:07.000+00:00
+          card_html: card_html
+          author: ""
+          file_name: file_name
+          link: link
+          created_at: 2000-01-23T04:56:07.000+00:00
+          tag_set: tag_set
+          content: content
+          updated_at: 2000-01-23T04:56:07.000+00:00
+          file_id: 046b6c7f-0b8a-43b9-b35d-6489e6daee91
+          id: 046b6c7f-0b8a-43b9-b35d-6489e6daee91
+          tracking_id: tracking_id
+          qdrant_point_id: 046b6c7f-0b8a-43b9-b35d-6489e6daee91
+        - metadata: ""
+          private: true
+          time_stamp: 2000-01-23T04:56:07.000+00:00
+          card_html: card_html
+          author: ""
+          file_name: file_name
+          link: link
+          created_at: 2000-01-23T04:56:07.000+00:00
+          tag_set: tag_set
+          content: content
+          updated_at: 2000-01-23T04:56:07.000+00:00
+          file_id: 046b6c7f-0b8a-43b9-b35d-6489e6daee91
+          id: 046b6c7f-0b8a-43b9-b35d-6489e6daee91
+          tracking_id: tracking_id
+          qdrant_point_id: 046b6c7f-0b8a-43b9-b35d-6489e6daee91
+      properties:
+        metadata:
+          items:
+            $ref: '#/components/schemas/CardMetadataWithFileData'
+          title: metadata
+          type: array
+        score:
+          format: double
+          title: score
+          type: number
+      required:
+      - metadata
+      - score
+      title: ScoreCardDTO
+      type: object
+    SearchCardData:
+      example:
+        cross_encoder: true
+        time_range:
+        - null
+        - null
+        link:
+        - link
+        - link
+        filters: ""
+        tag_set:
+        - tag_set
+        - tag_set
+        weights:
+        - null
+        - null
+        search_type: search_type
+        content: content
+      properties:
+        content:
+          title: content
+          type: string
+        cross_encoder:
+          nullable: true
+          title: cross_encoder
+          type: boolean
+        filters:
+          nullable: true
+          title: filters
+        link:
+          items:
+            type: string
+          nullable: true
+          title: link
+          type: array
+        search_type:
+          title: search_type
+          type: string
+        tag_set:
+          items:
+            type: string
+          nullable: true
+          title: tag_set
+          type: array
+        time_range:
+          items:
+            $ref: '#/components/schemas/SearchCardData_time_range_inner'
+          nullable: true
+          title: time_range
+          type: array
+        weights:
+          items:
+            $ref: '#/components/schemas/SearchCardData_weights_inner'
+          nullable: true
+          title: weights
+          type: array
+      required:
+      - content
+      - search_type
+      title: SearchCardData
+      type: object
+    SearchCardQueryResponseBody:
+      example:
+        score_cards:
+        - score: 0.8008281904610115
+          metadata:
+          - metadata: ""
+            private: true
+            time_stamp: 2000-01-23T04:56:07.000+00:00
+            card_html: card_html
+            author: ""
+            file_name: file_name
+            link: link
+            created_at: 2000-01-23T04:56:07.000+00:00
+            tag_set: tag_set
+            content: content
+            updated_at: 2000-01-23T04:56:07.000+00:00
+            file_id: 046b6c7f-0b8a-43b9-b35d-6489e6daee91
+            id: 046b6c7f-0b8a-43b9-b35d-6489e6daee91
+            tracking_id: tracking_id
+            qdrant_point_id: 046b6c7f-0b8a-43b9-b35d-6489e6daee91
+          - metadata: ""
+            private: true
+            time_stamp: 2000-01-23T04:56:07.000+00:00
+            card_html: card_html
+            author: ""
+            file_name: file_name
+            link: link
+            created_at: 2000-01-23T04:56:07.000+00:00
+            tag_set: tag_set
+            content: content
+            updated_at: 2000-01-23T04:56:07.000+00:00
+            file_id: 046b6c7f-0b8a-43b9-b35d-6489e6daee91
+            id: 046b6c7f-0b8a-43b9-b35d-6489e6daee91
+            tracking_id: tracking_id
+            qdrant_point_id: 046b6c7f-0b8a-43b9-b35d-6489e6daee91
+        - score: 0.8008281904610115
+          metadata:
+          - metadata: ""
+            private: true
+            time_stamp: 2000-01-23T04:56:07.000+00:00
+            card_html: card_html
+            author: ""
+            file_name: file_name
+            link: link
+            created_at: 2000-01-23T04:56:07.000+00:00
+            tag_set: tag_set
+            content: content
+            updated_at: 2000-01-23T04:56:07.000+00:00
+            file_id: 046b6c7f-0b8a-43b9-b35d-6489e6daee91
+            id: 046b6c7f-0b8a-43b9-b35d-6489e6daee91
+            tracking_id: tracking_id
+            qdrant_point_id: 046b6c7f-0b8a-43b9-b35d-6489e6daee91
+          - metadata: ""
+            private: true
+            time_stamp: 2000-01-23T04:56:07.000+00:00
+            card_html: card_html
+            author: ""
+            file_name: file_name
+            link: link
+            created_at: 2000-01-23T04:56:07.000+00:00
+            tag_set: tag_set
+            content: content
+            updated_at: 2000-01-23T04:56:07.000+00:00
+            file_id: 046b6c7f-0b8a-43b9-b35d-6489e6daee91
+            id: 046b6c7f-0b8a-43b9-b35d-6489e6daee91
+            tracking_id: tracking_id
+            qdrant_point_id: 046b6c7f-0b8a-43b9-b35d-6489e6daee91
+        total_card_pages: 6
+      properties:
+        score_cards:
+          items:
+            $ref: '#/components/schemas/ScoreCardDTO'
+          title: score_cards
+          type: array
+        total_card_pages:
+          format: int64
+          title: total_card_pages
+          type: integer
+      required:
+      - score_cards
+      - total_card_pages
+      title: SearchCardQueryResponseBody
+      type: object
+    SearchCollectionsData:
+      properties:
+        collection_id:
+          format: uuid
+          type: string
+        content:
+          type: string
+        filters:
+          nullable: true
+        link:
+          items:
+            type: string
+          nullable: true
+          type: array
+        search_type:
+          type: string
+        tag_set:
+          items:
+            type: string
+          nullable: true
+          type: array
+      required:
+      - collection_id
+      - content
+      - search_type
+      type: object
+    SearchCollectionsResult:
+      properties:
+        bookmarks:
+          items:
+            $ref: '#/components/schemas/ScoreCardDTO'
+          type: array
+        collection:
+          $ref: '#/components/schemas/CardCollection'
+        total_pages:
+          format: int64
+          type: integer
+      required:
+      - bookmarks
+      - collection
+      - total_pages
+      type: object
+    SetUserApiKeyResponse:
+      example:
+        api_key: api_key
+      properties:
+        api_key:
+          title: api_key
+          type: string
+      required:
+      - api_key
+      title: SetUserApiKeyResponse
+      type: object
+    SlimCollection:
+      properties:
+        author_id:
+          format: uuid
+          title: author_id
+          type: string
+        id:
+          format: uuid
+          title: id
+          type: string
+        name:
+          title: name
+          type: string
+        of_current_user:
+          title: of_current_user
+          type: boolean
+      required:
+      - author_id
+      - id
+      - name
+      - of_current_user
+      title: SlimCollection
+      type: object
+    SlimUser:
+      example:
+        website: website
+        organization_id: 046b6c7f-0b8a-43b9-b35d-6489e6daee91
+        id: 046b6c7f-0b8a-43b9-b35d-6489e6daee91
+        visible_email: true
+        email: email
+        username: username
+      properties:
+        email:
+          title: email
+          type: string
+        id:
+          format: uuid
+          title: id
+          type: string
+        organization_id:
+          format: uuid
+          title: organization_id
+          type: string
+        username:
+          nullable: true
+          title: username
+          type: string
+        visible_email:
+          title: visible_email
+          type: boolean
+        website:
+          nullable: true
+          title: website
+          type: string
+      required:
+      - email
+      - id
+      - organization_id
+      - visible_email
+      title: SlimUser
+      type: object
+    SuggestedQueriesRequest:
+      example:
+        query: query
+      properties:
+        query:
+          title: query
+          type: string
+      required:
+      - query
+      title: SuggestedQueriesRequest
+      type: object
+    SuggestedQueriesResponse:
+      example:
+        queries:
+        - queries
+        - queries
+      properties:
+        queries:
+          items:
+            type: string
+          title: queries
+          type: array
+      required:
+      - queries
+      title: SuggestedQueriesResponse
+      type: object
+    Topic:
+      example:
+        side: true
+        deleted: true
+        updated_at: 2000-01-23T04:56:07.000+00:00
+        user_id: 046b6c7f-0b8a-43b9-b35d-6489e6daee91
+        normal_chat: true
+        created_at: 2000-01-23T04:56:07.000+00:00
+        id: 046b6c7f-0b8a-43b9-b35d-6489e6daee91
+        resolution: resolution
+      properties:
+        created_at:
+          format: date-time
+          title: created_at
+          type: string
+        deleted:
+          title: deleted
+          type: boolean
+        id:
+          format: uuid
+          title: id
+          type: string
+        normal_chat:
+          title: normal_chat
+          type: boolean
+        resolution:
+          title: resolution
+          type: string
+        side:
+          title: side
+          type: boolean
+        updated_at:
+          format: date-time
+          title: updated_at
+          type: string
+        user_id:
+          format: uuid
+          title: user_id
+          type: string
+      required:
+      - created_at
+      - deleted
+      - id
+      - normal_chat
+      - resolution
+      - side
+      - updated_at
+      - user_id
+      title: Topic
+      type: object
+    UpdateCardByTrackingIdData:
+      example:
+        metadata: ""
+        private: true
+        time_stamp: time_stamp
+        card_html: card_html
+        link: link
+        tracking_id: tracking_id
+        card_uuid: 046b6c7f-0b8a-43b9-b35d-6489e6daee91
+      properties:
+        card_html:
+          nullable: true
+          title: card_html
+          type: string
+        card_uuid:
+          format: uuid
+          nullable: true
+          title: card_uuid
+          type: string
+        link:
+          nullable: true
+          title: link
+          type: string
+        metadata:
+          nullable: true
+          title: metadata
+        private:
+          nullable: true
+          title: private
+          type: boolean
+        time_stamp:
+          nullable: true
+          title: time_stamp
+          type: string
+        tracking_id:
+          title: tracking_id
+          type: string
+      required:
+      - tracking_id
+      title: UpdateCardByTrackingIdData
+      type: object
+    UpdateCardCollectionData:
+      example:
+        collection_id: 046b6c7f-0b8a-43b9-b35d-6489e6daee91
+        is_public: true
+        name: name
+        description: description
+      properties:
+        collection_id:
+          format: uuid
+          title: collection_id
+          type: string
+        description:
+          nullable: true
+          title: description
+          type: string
+        is_public:
+          nullable: true
+          title: is_public
+          type: boolean
+        name:
+          nullable: true
+          title: name
+          type: string
+      required:
+      - collection_id
+      title: UpdateCardCollectionData
+      type: object
+    UpdateCardData:
+      example:
+        metadata: ""
+        private: true
+        time_stamp: time_stamp
+        card_html: card_html
+        link: link
+        tracking_id: tracking_id
+        card_uuid: 046b6c7f-0b8a-43b9-b35d-6489e6daee91
+      properties:
+        card_html:
+          nullable: true
+          title: card_html
+          type: string
+        card_uuid:
+          format: uuid
+          title: card_uuid
+          type: string
+        link:
+          nullable: true
+          title: link
+          type: string
+        metadata:
+          nullable: true
+          title: metadata
+        private:
+          nullable: true
+          title: private
+          type: boolean
+        time_stamp:
+          nullable: true
+          title: time_stamp
+          type: string
+        tracking_id:
+          nullable: true
+          title: tracking_id
+          type: string
+      required:
+      - card_uuid
+      title: UpdateCardData
+      type: object
+    UpdateFileData:
+      example:
+        private: true
+        file_id: 046b6c7f-0b8a-43b9-b35d-6489e6daee91
+      properties:
+        file_id:
+          format: uuid
+          title: file_id
+          type: string
+        private:
+          title: private
+          type: boolean
+      required:
+      - file_id
+      - private
+      title: UpdateFileData
+      type: object
+    UpdateOrganizationData:
+      example:
+        configuration: ""
+        organization_uuid: 046b6c7f-0b8a-43b9-b35d-6489e6daee91
+        name: name
+      properties:
+        configuration:
+          title: configuration
+        name:
+          title: name
+          type: string
+        organization_uuid:
+          format: uuid
+          title: organization_uuid
+          type: string
+      required:
+      - configuration
+      - name
+      - organization_uuid
+      title: UpdateOrganizationData
+      type: object
+    UpdateTopicData:
+      example:
+        side: true
+        topic_id: 046b6c7f-0b8a-43b9-b35d-6489e6daee91
+        resolution: resolution
+      properties:
+        resolution:
+          title: resolution
+          type: string
+        side:
+          title: side
+          type: boolean
+        topic_id:
+          format: uuid
+          title: topic_id
+          type: string
+      required:
+      - resolution
+      - side
+      - topic_id
+      title: UpdateTopicData
+      type: object
+    UpdateUserData:
+      example:
+        website: website
+        visible_email: true
+        username: username
+      properties:
+        username:
+          nullable: true
+          title: username
+          type: string
+        visible_email:
+          title: visible_email
+          type: boolean
+        website:
+          nullable: true
+          title: website
+          type: string
+      required:
+      - visible_email
+      title: UpdateUserData
+      type: object
+    UploadFileData:
+      example:
+        metadata: ""
+        private: true
+        time_stamp: time_stamp
+        file_name: file_name
+        link: link
+        base64_docx_file: base64_docx_file
+        description: description
+        file_mime_type: file_mime_type
+        tag_set: tag_set
+        create_cards: true
+      properties:
+        base64_docx_file:
+          title: base64_docx_file
+          type: string
+        create_cards:
+          nullable: true
+          title: create_cards
+          type: boolean
+        description:
+          nullable: true
+          title: description
+          type: string
+        file_mime_type:
+          title: file_mime_type
+          type: string
+        file_name:
+          title: file_name
+          type: string
+        link:
+          nullable: true
+          title: link
+          type: string
+        metadata:
+          nullable: true
+          title: metadata
+        private:
+          title: private
+          type: boolean
+        tag_set:
+          nullable: true
+          title: tag_set
+          type: string
+        time_stamp:
+          nullable: true
+          title: time_stamp
+          type: string
+      required:
+      - base64_docx_file
+      - file_mime_type
+      - file_name
+      - private
+      title: UploadFileData
+      type: object
+    UploadFileResult:
+      example:
+        file_metadata:
+          metadata: ""
+          private: true
+          size: 0
+          time_stamp: 2000-01-23T04:56:07.000+00:00
+          updated_at: 2000-01-23T04:56:07.000+00:00
+          user_id: 046b6c7f-0b8a-43b9-b35d-6489e6daee91
+          file_name: file_name
+          dataset_id: 046b6c7f-0b8a-43b9-b35d-6489e6daee91
+          link: link
+          created_at: 2000-01-23T04:56:07.000+00:00
+          id: 046b6c7f-0b8a-43b9-b35d-6489e6daee91
+          tag_set: tag_set
+      properties:
+        file_metadata:
+          $ref: '#/components/schemas/File'
+      required:
+      - file_metadata
+      title: UploadFileResult
+      type: object
+    UserCollectionQuery:
+      properties:
+        page:
+          format: int64
+          minimum: 0
+          type: integer
+        user_id:
+          format: uuid
+          type: string
+      required:
+      - page
+      - user_id
+      type: object
+    UserDTO:
+      properties:
+        created_at:
+          format: date-time
+          title: created_at
+          type: string
+        email:
+          nullable: true
+          title: email
+          type: string
+        id:
+          format: uuid
+          title: id
+          type: string
+        organization_id:
+          format: uuid
+          title: organization_id
+          type: string
+        username:
+          nullable: true
+          title: username
+          type: string
+        visible_email:
+          title: visible_email
+          type: boolean
+        website:
+          nullable: true
+          title: website
+          type: string
+      required:
+      - created_at
+      - id
+      - organization_id
+      - visible_email
+      title: UserDTO
+      type: object
+    UserDTOWithCards:
+      example:
+        total_cards_created: 0
+        website: website
+        cards:
+        - metadata: ""
+          private: true
+          time_stamp: 2000-01-23T04:56:07.000+00:00
+          card_html: card_html
+          author: ""
+          file_name: file_name
+          link: link
+          created_at: 2000-01-23T04:56:07.000+00:00
+          tag_set: tag_set
+          content: content
+          updated_at: 2000-01-23T04:56:07.000+00:00
+          file_id: 046b6c7f-0b8a-43b9-b35d-6489e6daee91
+          id: 046b6c7f-0b8a-43b9-b35d-6489e6daee91
+          tracking_id: tracking_id
+          qdrant_point_id: 046b6c7f-0b8a-43b9-b35d-6489e6daee91
+        - metadata: ""
+          private: true
+          time_stamp: 2000-01-23T04:56:07.000+00:00
+          card_html: card_html
+          author: ""
+          file_name: file_name
+          link: link
+          created_at: 2000-01-23T04:56:07.000+00:00
+          tag_set: tag_set
+          content: content
+          updated_at: 2000-01-23T04:56:07.000+00:00
+          file_id: 046b6c7f-0b8a-43b9-b35d-6489e6daee91
+          id: 046b6c7f-0b8a-43b9-b35d-6489e6daee91
+          tracking_id: tracking_id
+          qdrant_point_id: 046b6c7f-0b8a-43b9-b35d-6489e6daee91
+        organization_id: 046b6c7f-0b8a-43b9-b35d-6489e6daee91
+        created_at: 2000-01-23T04:56:07.000+00:00
+        id: 046b6c7f-0b8a-43b9-b35d-6489e6daee91
+        visible_email: true
+        email: email
+        username: username
+      properties:
+        cards:
+          items:
+            $ref: '#/components/schemas/CardMetadataWithFileData'
+          title: cards
+          type: array
+        created_at:
+          format: date-time
+          title: created_at
+          type: string
+        email:
+          nullable: true
+          title: email
+          type: string
+        id:
+          format: uuid
+          title: id
+          type: string
+        organization_id:
+          format: uuid
+          title: organization_id
+          type: string
+        total_cards_created:
+          format: int64
+          title: total_cards_created
+          type: integer
+        username:
+          nullable: true
+          title: username
+          type: string
+        visible_email:
+          title: visible_email
+          type: boolean
+        website:
+          nullable: true
+          title: website
+          type: string
+      required:
+      - cards
+      - created_at
+      - id
+      - organization_id
+      - total_cards_created
+      - visible_email
+      title: UserDTOWithCards
+      type: object
+    SearchCardData_time_range_inner:
+      allOf:
+      - type: string
+      - type: string
+      title: SearchCardData_time_range_inner
+    SearchCardData_weights_inner:
+      allOf:
+      - format: double
+        type: number
+      - format: double
+        type: number
+      title: SearchCardData_weights_inner
